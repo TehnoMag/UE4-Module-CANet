@@ -71,6 +71,7 @@ void UClientChannel::InitializeChannel()
 		InitializeProperty(Property, Template);
 	}
 
+#if WITH_EDITOR
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
 		UE_LOG(LogClientChannel, Log, TEXT("%s initialized on client %i."), *GetName(), GPlayInEditorID - 1);
@@ -79,6 +80,7 @@ void UClientChannel::InitializeChannel()
 	{
 		UE_LOG(LogClientChannel, Log, TEXT("%s initialized on server"), *GetName());
 	}
+#endif
 }
 
 void UClientChannel::InitializeProperty(UProperty* Property, AActor* Container)
@@ -117,11 +119,14 @@ void UClientChannel::OnRep_ChannelInfo()
 		{
 			InitializeChannel();
 			
+#if WITH_EDITOR
 			if (_ChannelInfo.AuthorityMode == EClientChannelMode::CCM_OWNER && Viewer->GetOwner() != nullptr)
 			{
 				UE_LOG(LogClientChannel, Log, TEXT("%s: Client %i set as authority"), *GetName(), GPlayInEditorID - 1);
 				SetComponentTickEnabled(true);
 			}
+#endif
+
 		}
 	}
 }
@@ -204,6 +209,7 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 					}
 				}
 
+#if WITH_EDITOR
 				FString PropName = ChannelProperty->Property->GetName();
 
 				if (GetWorld()->GetNetMode() == NM_Client)
@@ -214,6 +220,7 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 				{
 					UE_LOG(LogClientChannel, Log, TEXT("Server %s: receive property %s"), *GetName(), *PropName);
 				}
+#endif
 			}
 		}
 

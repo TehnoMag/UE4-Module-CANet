@@ -48,7 +48,7 @@ void ACANPlayerState::SpawnActorWithClientChannel(UObject* WorldContextObject, E
 	{
 		if (ActorOwner->GetOwner() != PlayerState)
 		{
-			UE_LOG(LogCANet, Warning, TEXT("Can not assign Channel %s as owner, becouse channel owner is invalid"), *ActorOwner->GetName());
+			UE_LOG(LogCANet, Warning, TEXT("Can not assign Channel %s as owner, because channel owner is invalid"), *ActorOwner->GetName());
 			ActorOwner = nullptr;
 		}
 	}
@@ -57,7 +57,7 @@ void ACANPlayerState::SpawnActorWithClientChannel(UObject* WorldContextObject, E
 	{
 		if (Instigator->GetOwner() != PlayerState)
 		{
-			UE_LOG(LogCANet, Warning, TEXT("Can not assign Channel %s as Instigator, becouse channel owner is invalid"), *Instigator->GetName());
+			UE_LOG(LogCANet, Warning, TEXT("Can not assign Channel %s as Instigator, because channel owner is invalid"), *Instigator->GetName());
 			Instigator = nullptr;
 		}
 		else if (!Instigator->GetViewActor()->IsA<APawn>())
