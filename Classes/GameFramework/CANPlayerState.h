@@ -29,11 +29,12 @@ private:
 //~ Begin Blueprint Interface
 
 public:
-	UFUNCTION(BlueprintCallable, Category = "Game",
+	UFUNCTION(BlueprintCallable, Category = "Client Authority Network",
 		Meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "5")
 	)
 	static void SpawnActorWithClientChannel(UObject* WorldContextObject, EClientChannelMode Authority, UClass* ActorClass, const FTransform& SpawnTransform,
-		ESpawnActorCollisionHandlingMethod CollisionMethodOverride, APlayerState* Spawner = nullptr, AActor* OwnerActor = nullptr, APawn* InstigatorPawn = nullptr);
+		ESpawnActorCollisionHandlingMethod CollisionMethodOverride,
+		ACANPlayerState* Spawner = nullptr, UClientChannel* OwnerActor = nullptr, UClientChannel* InstigatorPawn = nullptr);
 
 //~ End Blueprint Interface
 

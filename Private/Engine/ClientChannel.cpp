@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
 #include "UnrealNetwork.h"
+#include "EngineGlobals.h"
 
 DEFINE_LOG_CATEGORY(LogClientChannel);
 
@@ -70,7 +71,14 @@ void UClientChannel::InitializeChannel()
 		InitializeProperty(Property, Template);
 	}
 
-	UE_LOG(LogClientChannel, Log, TEXT("ClientChannel %s initialize on %s side."), *GetName(), GetWorld()->GetNetMode() == NM_Client ? TEXT("client") : TEXT("server") );
+	if (GetWorld()->GetNetMode() == NM_Client)
+	{
+		UE_LOG(LogClientChannel, Log, TEXT("%s initialized on client %i."), *GetName(), GPlayInEditorID - 1);
+	}
+	else
+	{
+		UE_LOG(LogClientChannel, Log, TEXT("%s initialized on server"), *GetName());
+	}
 }
 
 void UClientChannel::InitializeProperty(UProperty* Property, AActor* Container)
@@ -99,6 +107,9 @@ void UClientChannel::OnRep_ChannelInfo()
 		FActorSpawnParameters SpawnInfo;
 		SpawnInfo.ObjectFlags |= RF_Transient;
 		SpawnInfo.SpawnCollisionHandlingOverride = _ChannelInfo.CollisionMethodOverride;
+		SpawnInfo.Instigator = _ChannelInfo.Instigator ? Cast<APawn>(_ChannelInfo.Instigator->View) : nullptr;
+		SpawnInfo.Owner = _ChannelInfo.Owner ? _ChannelInfo.Owner->View : nullptr;
+
 		
 		View = GetWorld()->SpawnActor<AActor>(_ChannelInfo.Class, _ChannelInfo.SpawnTransform, SpawnInfo);
 
@@ -106,9 +117,9 @@ void UClientChannel::OnRep_ChannelInfo()
 		{
 			InitializeChannel();
 			
-			if (_ChannelInfo.AuthorityMode == EClientChannelMode::CCM_OWNER && Viewer->GetNetConnection())
+			if (_ChannelInfo.AuthorityMode == EClientChannelMode::CCM_OWNER && Viewer->GetOwner() != nullptr)
 			{
-				UE_LOG(LogClientChannel, Log, TEXT("ClientChannel %s set as authority"), *GetName());
+				UE_LOG(LogClientChannel, Log, TEXT("%s: Client %i set as authority"), *GetName(), GPlayInEditorID - 1);
 				SetComponentTickEnabled(true);
 			}
 		}
@@ -194,8 +205,15 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 				}
 
 				FString PropName = ChannelProperty->Property->GetName();
-				UE_LOG(LogClientChannel, Log, TEXT("%s %s: receive property %s"), *GetName(),
-					GetWorld()->GetNetMode() == NM_Client ? TEXT("Client") : TEXT("Server"), *PropName);
+
+				if (GetWorld()->GetNetMode() == NM_Client)
+				{
+					UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: receive property %s"), GPlayInEditorID - 1, *GetName(), *PropName);
+				}
+				else
+				{
+					UE_LOG(LogClientChannel, Log, TEXT("Server %s: receive property %s"), *GetName(), *PropName);
+				}
 			}
 		}
 

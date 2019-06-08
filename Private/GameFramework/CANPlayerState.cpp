@@ -3,37 +3,81 @@
 #include "GameFramework/CANPlayerState.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
+#include "CANet.Definations.h"
 
 void ACANPlayerState::SpawnActorWithClientChannel(UObject* WorldContextObject, EClientChannelMode Authority, UClass* ActorClass, const FTransform& SpawnTransform,
-	ESpawnActorCollisionHandlingMethod CollisionMethodOverride, APlayerState* Spawner, AActor* ActorOwner, APawn* Instigator)
+	ESpawnActorCollisionHandlingMethod CollisionMethodOverride,
+	ACANPlayerState* Spawner, UClientChannel* ActorOwner, UClientChannel* Instigator)
 {
 	UWorld* World = WorldContextObject->GetWorld();
 	check(World);
 
-	if (World->GetNetMode() == NM_Client)
+	ACANPlayerState* PlayerState = nullptr;
+
+	switch (World->GetNetMode())
 	{
-		ACANPlayerState* PlayerState = nullptr;
-
-		if (Spawner != nullptr && Spawner->IsA<ACANPlayerState>())
+		case NM_Client:
 		{
-			PlayerState = Cast<ACANPlayerState>(Spawner);
-		}
-		else
-		{
+			
+			// In this mode we can use this function only for Local Player, so we must ignore Spawner parameter
 			PlayerState = Cast<ACANPlayerState>(World->GetFirstPlayerController()->PlayerState);
+			break;
 		}
-
-		if (PlayerState)
+		case NM_DedicatedServer:
 		{
-			FClientChannelInfo ChannelInfo;
-			ChannelInfo.AuthorityMode = Authority;
-			ChannelInfo.Class = ActorClass;
-			ChannelInfo.SpawnTransform = SpawnTransform;
-			ChannelInfo.CollisionMethodOverride = CollisionMethodOverride;
-			ChannelInfo.Owner = nullptr;
-			ChannelInfo.Instigator = nullptr;
-			PlayerState->Server_SpawnActorWithClientChannel(ChannelInfo);
+			if (Spawner == nullptr)
+			{
+				UE_LOG(LogCANet, Error, TEXT("Spawner parameter must be defined in SpawnActorWithClientChannel function if calling on a server"));
+				return;
+			}
+
+			PlayerState = Spawner;
+
+			break;
 		}
+		default:
+		{
+			UE_LOG(LogCANet, Error, TEXT("Can not use SpawnActorWithClientChannel function in current network mode"));
+			return;
+		}
+	}
+
+	// If Owner and/or Instigator are defined we must check it relations with Local Player
+
+	if (ActorOwner != nullptr)
+	{
+		if (ActorOwner->GetOwner() != PlayerState)
+		{
+			UE_LOG(LogCANet, Warning, TEXT("Can not assign Channel %s as owner, becouse channel owner is invalid"), *ActorOwner->GetName());
+			ActorOwner = nullptr;
+		}
+	}
+
+	if (Instigator != nullptr)
+	{
+		if (Instigator->GetOwner() != PlayerState)
+		{
+			UE_LOG(LogCANet, Warning, TEXT("Can not assign Channel %s as Instigator, becouse channel owner is invalid"), *Instigator->GetName());
+			Instigator = nullptr;
+		}
+		else if (!Instigator->GetViewActor()->IsA<APawn>())
+		{
+			UE_LOG(LogCANet, Warning, TEXT("Instigator %s for a channel %s has invalid class"), 
+				*Instigator->GetViewActor()->GetName(), *ActorOwner->GetName());
+			Instigator = nullptr;
+		}
+	}
+
+	if (PlayerState)
+	{
+		FClientChannelInfo ChannelInfo;
+		ChannelInfo.AuthorityMode = Authority;
+		ChannelInfo.Class = ActorClass;
+		ChannelInfo.SpawnTransform = SpawnTransform;
+		ChannelInfo.CollisionMethodOverride = CollisionMethodOverride;
+		ChannelInfo.Owner = ActorOwner;
+		ChannelInfo.Instigator = Instigator;
+		PlayerState->Server_SpawnActorWithClientChannel(ChannelInfo);
 	}
 }
 

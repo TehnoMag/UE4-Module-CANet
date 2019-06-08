@@ -133,4 +133,12 @@ public:
 
 //~ End UObject Interface
 
+//~ Begin Blueprint Interface
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Client Authority Network")
+		AActor* GetViewActor() const { return View; };
+
+//~ End Blueprint Interface
+
 };
