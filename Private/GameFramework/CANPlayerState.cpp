@@ -80,6 +80,7 @@ void ACANPlayerState::SpawnActorWithClientChannel(UObject* WorldContextObject, E
 		ChannelInfo.CollisionMethodOverride = CollisionMethodOverride;
 		ChannelInfo.Owner = ActorOwner;
 		ChannelInfo.Instigator = Instigator;
+		ChannelInfo.bPossesOnSpawn = (PlayerState->GetPawn()) ? false : true;
 		PlayerState->Server_SpawnActorWithClientChannel(ChannelInfo);
 	}
 	else

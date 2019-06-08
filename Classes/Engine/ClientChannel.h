@@ -41,6 +41,9 @@ public:
 
 	UPROPERTY()
 		UClientChannel* Instigator;
+
+	UPROPERTY()
+		uint8 bPossesOnSpawn : 1;
 };
 
 USTRUCT()

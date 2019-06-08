@@ -3,6 +3,7 @@
 #include "Engine/ClientChannel.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/PlayerController.h"
 #include "UnrealNetwork.h"
 #include "EngineGlobals.h"
 
@@ -118,21 +119,32 @@ void UClientChannel::OnRep_ChannelInfo()
 		if (View != nullptr)
 		{
 			InitializeChannel();
-			
-#if WITH_EDITOR
+
 			if (_ChannelInfo.AuthorityMode == EClientChannelMode::CCM_OWNER && Viewer->GetOwner() != nullptr)
 			{
+#if WITH_EDITOR
 				UE_LOG(LogClientChannel, Log, TEXT("%s: Client %i set as authority"), *GetName(), GPlayInEditorID - 1);
-				SetComponentTickEnabled(true);
-			}
 #endif
+				SetComponentTickEnabled(true);
 
+				if (_ChannelInfo.bPossesOnSpawn)
+				{
+					GetWorld()->GetFirstPlayerController()->Possess(Cast<APawn>(View));
+				}
+			}
+			else
+			{
+				View->SwapRoles();
+			}
 		}
 	}
 }
 
 void UClientChannel::GatherUpdates(TArray<FClientChannelRepData>& RepData)
 {
+	if (View->bReplicateMovement)
+		View->GatherCurrentMovement();
+
 	for (int32 i = 0; i < Properties.Num(); ++i)
 	{
 		FClientChannelProperty* ChannelProperty = &Properties[i];
@@ -204,6 +216,8 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 
 						if (RepNotify)
 						{
+							FString NotifyName = RepNotify->GetName();
+							UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: notify %s"), GPlayInEditorID - 1, *GetName(), *NotifyName);
 							View->ProcessEvent(RepNotify, nullptr);
 						}
 					}
