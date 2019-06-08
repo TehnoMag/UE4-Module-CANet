@@ -4,6 +4,8 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "UnrealNetwork.h"
 #include "EngineGlobals.h"
 
@@ -130,6 +132,11 @@ void UClientChannel::OnRep_ChannelInfo()
 				if (_ChannelInfo.bPossesOnSpawn)
 				{
 					GetWorld()->GetFirstPlayerController()->Possess(Cast<APawn>(View));
+
+					if (View->IsA<ACharacter>())
+					{
+						Cast<ACharacter>(View)->GetMesh()->bOnlyAllowAutonomousTickPose = false;
+					}
 				}
 			}
 			else
@@ -142,8 +149,7 @@ void UClientChannel::OnRep_ChannelInfo()
 
 void UClientChannel::GatherUpdates(TArray<FClientChannelRepData>& RepData)
 {
-	if (View->bReplicateMovement)
-		View->GatherCurrentMovement();
+	View->PreReplication(TrackerNull);
 
 	for (int32 i = 0; i < Properties.Num(); ++i)
 	{
@@ -190,6 +196,9 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 {
 	if (RepData.Num())
 	{
+		if (View != nullptr)
+			View->PreNetReceive();
+
 		TArray<FClientChannelRepData> srvRepInfo;
 		srvRepInfo.Empty();
 
@@ -240,5 +249,8 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 
 		if (srvRepInfo.Num())
 			ReplicationData = srvRepInfo;
+
+		if (View != nullptr)
+			View->PostNetReceive();
 	}
 }

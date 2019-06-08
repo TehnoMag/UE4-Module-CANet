@@ -78,6 +78,24 @@ public:
 		TArray<uint8> Raw;
 };
 
+class FRepPropertyTrackerNull : public IRepChangedPropertyTracker
+{
+public:
+	FRepPropertyTrackerNull() {};
+
+	virtual void SetCustomIsActiveOverride(const uint16 RepIndex, const bool bIsActive) override {};
+
+	virtual void SetExternalData(const uint8* Src, const int32 NumBits) override {};
+
+	virtual bool IsReplay() const override { return false; }
+
+	/**
+	* Used when tracking memory to gather the total size of a given instance.
+	* This should include the dynamically allocated data, as well as the classes size.
+	*/
+	virtual void CountBytes(FArchive& Ar) const {};
+};
+
 UCLASS()
 class CANET_API UClientChannel : public UActorComponent
 {
@@ -97,6 +115,7 @@ private:
 private:
 	AActor* View;
 	TArray<FClientChannelProperty> Properties;
+	FRepPropertyTrackerNull TrackerNull;
 
 //~ Begin Network
 
