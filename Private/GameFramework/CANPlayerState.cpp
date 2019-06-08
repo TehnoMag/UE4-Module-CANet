@@ -68,7 +68,10 @@ void ACANPlayerState::SpawnActorWithClientChannel(UObject* WorldContextObject, E
 		}
 	}
 
-	if (PlayerState)
+	//Check if spawning actor are available for replication
+	AActor* TemplateActor = ActorClass->GetDefaultObject<AActor>();
+
+	if (PlayerState && TemplateActor->GetIsReplicated())
 	{
 		FClientChannelInfo ChannelInfo;
 		ChannelInfo.AuthorityMode = Authority;
@@ -78,6 +81,10 @@ void ACANPlayerState::SpawnActorWithClientChannel(UObject* WorldContextObject, E
 		ChannelInfo.Owner = ActorOwner;
 		ChannelInfo.Instigator = Instigator;
 		PlayerState->Server_SpawnActorWithClientChannel(ChannelInfo);
+	}
+	else
+	{
+		UE_LOG(LogCANet, Error, TEXT("Actor`s Class %s is not available for replication"), *ActorClass->GetName());
 	}
 }
 
