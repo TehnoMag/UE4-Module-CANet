@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Net/RepLayout.h"
 #include "ClientChannel.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogClientChannel, Log, All);
@@ -47,29 +48,13 @@ public:
 };
 
 USTRUCT()
-struct FClientChannelProperty
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY()
-		UProperty* Property;
-
-	UPROPERTY()
-		uint32 CheckSum;
-
-	UPROPERTY()
-		TArray<uint8> Raw;
-};
-
-USTRUCT()
 struct FClientChannelRepData
 {
 	GENERATED_BODY()
 
 public:
 	UPROPERTY()
-		uint32 Index;
+		uint32 RepIndex;
 
 	UPROPERTY()
 		uint32 CheckSum;
@@ -78,10 +63,31 @@ public:
 		TArray<uint8> Raw;
 };
 
-class FRepPropertyTrackerNull : public IRepChangedPropertyTracker
+struct FClientChannelProperty
+{
+	UProperty* Property;
+	FLifetimeProperty* LifetimeProperty;
+	uint32 CheckSum;
+	TArray<uint8> Raw;
+
+	FClientChannelProperty()
+	:Property(nullptr),LifetimeProperty(nullptr),CheckSum(0)
+	{
+		Raw.Empty();
+	};
+};
+
+//Todo: move properties processing here
+class FClientChannelPropertyTracker : public IRepChangedPropertyTracker
 {
 public:
-	FRepPropertyTrackerNull() {};
+	FClientChannelPropertyTracker() {};
+
+	FClientChannelPropertyTracker(uint32 RepSize)
+	{
+		ChangedParent.SetNum(RepSize);
+		RepProperty.SetNum(RepSize);
+	};
 
 	virtual void SetCustomIsActiveOverride(const uint16 RepIndex, const bool bIsActive) override {};
 
@@ -89,11 +95,9 @@ public:
 
 	virtual bool IsReplay() const override { return false; }
 
-	/**
-	* Used when tracking memory to gather the total size of a given instance.
-	* This should include the dynamically allocated data, as well as the classes size.
-	*/
-	virtual void CountBytes(FArchive& Ar) const {};
+	TArray<FRepChangedParent> ChangedParent;
+	TArray<FClientChannelProperty> RepProperty;
+	TArray<FLifetimeProperty> LifetimeProperty;
 };
 
 UCLASS()
@@ -114,8 +118,7 @@ private:
 
 private:
 	AActor* View;
-	TArray<FClientChannelProperty> Properties;
-	FRepPropertyTrackerNull TrackerNull;
+	FClientChannelPropertyTracker PropertyTracker;
 
 //~ Begin Network
 

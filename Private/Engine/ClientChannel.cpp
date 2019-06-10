@@ -2,6 +2,7 @@
 
 #include "Engine/ClientChannel.h"
 #include "Engine/World.h"
+#include "GameFramework/Actor.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Character.h"
@@ -68,6 +69,9 @@ void UClientChannel::InitializeChannel()
 
 	Class->SetUpRuntimeReplicationData();
 
+	PropertyTracker = FClientChannelPropertyTracker(Class->ClassReps.Num());
+	Template->GetLifetimeReplicatedProps(PropertyTracker.LifetimeProperty);
+
 	for (FRepRecord RepRecord : Class->ClassReps)
 	{
 		UProperty* Property = RepRecord.Property;
@@ -88,12 +92,12 @@ void UClientChannel::InitializeChannel()
 
 void UClientChannel::InitializeProperty(UProperty* Property, AActor* Container)
 {
-	FClientChannelProperty ChannelProperty;
+	FClientChannelProperty& ChannelProperty = PropertyTracker.RepProperty[Property->RepIndex];
 	ChannelProperty.Property = Property;
+	ChannelProperty.LifetimeProperty = &PropertyTracker.LifetimeProperty[Property->RepIndex];
 
 	uint32 _size = Property->GetSize();
 
-	ChannelProperty.Raw.Empty();
 	ChannelProperty.Raw.AddZeroed(_size);
 	uint8* _ptr_cnl_ptr = ChannelProperty.Raw.GetData();
 	uint8* _ptr_ctr_ptr = Property->ContainerPtrToValuePtr<uint8>(Container);
@@ -101,8 +105,6 @@ void UClientChannel::InitializeProperty(UProperty* Property, AActor* Container)
 	Property->CopyCompleteValue(_ptr_cnl_ptr, _ptr_ctr_ptr);
 
 	ChannelProperty.CheckSum = FCrc::MemCrc32(_ptr_cnl_ptr, _size);
-
-	Properties.Emplace(ChannelProperty);
 }
 
 void UClientChannel::OnRep_ChannelInfo()
@@ -149,29 +151,28 @@ void UClientChannel::OnRep_ChannelInfo()
 
 void UClientChannel::GatherUpdates(TArray<FClientChannelRepData>& RepData)
 {
-	View->PreReplication(TrackerNull);
+	View->PreReplication(PropertyTracker);
 
-	for (int32 i = 0; i < Properties.Num(); ++i)
+	for (FClientChannelProperty& RepProperty : PropertyTracker.RepProperty)
 	{
-		FClientChannelProperty* ChannelProperty = &Properties[i];
-		UProperty* Property = ChannelProperty->Property;
+		UProperty* Property = RepProperty.Property;
 		uint32 _size = Property->GetSize();
-		
+
 		uint8* _ptr_ctr_ptr = Property->ContainerPtrToValuePtr<uint8>(View);
 		uint32 _crc = FCrc::MemCrc32(_ptr_ctr_ptr, _size);
 
-		if (ChannelProperty->CheckSum != _crc)
+		if (RepProperty.CheckSum != _crc)
 		{
-			ChannelProperty->Raw.Empty();
-			ChannelProperty->Raw.AddZeroed(_size);
-			uint8* _ptr_cnl_ptr = ChannelProperty->Raw.GetData();
-			Property->CopyCompleteValue(_ptr_cnl_ptr, _ptr_ctr_ptr);
-			ChannelProperty->CheckSum = _crc;
+			RepProperty.Raw.Empty();
+			RepProperty.Raw.AddZeroed(_size);
+			uint8* _ptr_rpr_ptr = RepProperty.Raw.GetData();
+			Property->CopyCompleteValue(_ptr_rpr_ptr, _ptr_ctr_ptr);
+			RepProperty.CheckSum = _crc;
 
 			FClientChannelRepData RepInfo;
-			RepInfo.Index = i;
+			RepInfo.RepIndex = Property->RepIndex;
 			RepInfo.CheckSum = _crc;
-			RepInfo.Raw = ChannelProperty->Raw;
+			RepInfo.Raw = RepProperty.Raw;
 			RepData.Emplace(RepInfo);
 		}
 	}
@@ -204,24 +205,24 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 
 		for (FClientChannelRepData RepInfo : RepData)
 		{
-			FClientChannelProperty* ChannelProperty = &Properties[RepInfo.Index];
+			FClientChannelProperty& RepProperty = PropertyTracker.RepProperty[RepInfo.RepIndex];
 
-			if (ChannelProperty->CheckSum != RepInfo.CheckSum)
+			if (RepProperty.CheckSum != RepInfo.CheckSum)
 			{
-				ChannelProperty->Raw = RepInfo.Raw;
-				ChannelProperty->CheckSum = RepInfo.CheckSum;
+				RepProperty.Raw = RepInfo.Raw;
+				RepProperty.CheckSum = RepInfo.CheckSum;
 				srvRepInfo.Emplace(RepInfo);
 
 				if (View != nullptr)
 				{
-					uint8* _ptr_ctr_ptr = ChannelProperty->Property->ContainerPtrToValuePtr<uint8>(View);
-					uint8* _ptr_cnl_ptr = ChannelProperty->Raw.GetData();
-					ChannelProperty->Property->CopyCompleteValue(_ptr_ctr_ptr, _ptr_cnl_ptr);
+					uint8* _ptr_ctr_ptr = RepProperty.Property->ContainerPtrToValuePtr<uint8>(View);
+					uint8* _ptr_rpr_ptr = RepProperty.Raw.GetData();
+					RepProperty.Property->CopyCompleteValue(_ptr_ctr_ptr, _ptr_rpr_ptr);
 
 					//Call RepNotify
-					if (ChannelProperty->Property->RepNotifyFunc != NAME_None)
+					if (RepProperty.Property->RepNotifyFunc != NAME_None)
 					{
-						UFunction* RepNotify = View->FindFunction(ChannelProperty->Property->RepNotifyFunc);
+						UFunction* RepNotify = View->FindFunction(RepProperty.Property->RepNotifyFunc);
 
 						if (RepNotify)
 						{
@@ -233,7 +234,7 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 				}
 
 #if WITH_EDITOR
-				FString PropName = ChannelProperty->Property->GetName();
+				FString PropName = RepProperty.Property->GetName();
 
 				if (GetWorld()->GetNetMode() == NM_Client)
 				{
