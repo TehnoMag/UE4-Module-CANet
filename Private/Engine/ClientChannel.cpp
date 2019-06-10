@@ -195,10 +195,9 @@ void UClientChannel::Client_ReceiveUpdate()
 
 void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 {
-	if (RepData.Num())
+	if (RepData.Num() && View != nullptr)
 	{
-		if (View != nullptr)
-			View->PreNetReceive();
+		View->PreNetReceive();
 
 		TArray<FClientChannelRepData> srvRepInfo;
 		srvRepInfo.Empty();
@@ -213,45 +212,41 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 				RepProperty.CheckSum = RepInfo.CheckSum;
 				srvRepInfo.Emplace(RepInfo);
 
-				if (View != nullptr)
+				uint8* _ptr_ctr_ptr = RepProperty.Property->ContainerPtrToValuePtr<uint8>(View);
+				uint8* _ptr_rpr_ptr = RepProperty.Raw.GetData();
+				RepProperty.Property->CopyCompleteValue(_ptr_ctr_ptr, _ptr_rpr_ptr);
+
+				//Call RepNotify
+				if (RepProperty.Property->RepNotifyFunc != NAME_None)
 				{
-					uint8* _ptr_ctr_ptr = RepProperty.Property->ContainerPtrToValuePtr<uint8>(View);
-					uint8* _ptr_rpr_ptr = RepProperty.Raw.GetData();
-					RepProperty.Property->CopyCompleteValue(_ptr_ctr_ptr, _ptr_rpr_ptr);
+					UFunction* RepNotify = View->FindFunction(RepProperty.Property->RepNotifyFunc);
 
-					//Call RepNotify
-					if (RepProperty.Property->RepNotifyFunc != NAME_None)
+					if (RepNotify)
 					{
-						UFunction* RepNotify = View->FindFunction(RepProperty.Property->RepNotifyFunc);
-
-						if (RepNotify)
-						{
-							FString NotifyName = RepNotify->GetName();
-							UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: notify %s"), GPlayInEditorID - 1, *GetName(), *NotifyName);
-							View->ProcessEvent(RepNotify, nullptr);
-						}
+						FString NotifyName = RepNotify->GetName();
+						UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: notify %s"), GPlayInEditorID - 1, *GetName(), *NotifyName);
+						View->ProcessEvent(RepNotify, nullptr);
 					}
 				}
+			}
 
 #if WITH_EDITOR
-				FString PropName = RepProperty.Property->GetName();
+			FString PropName = RepProperty.Property->GetName();
 
-				if (GetWorld()->GetNetMode() == NM_Client)
-				{
-					UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: receive property %s"), GPlayInEditorID - 1, *GetName(), *PropName);
-				}
-				else
-				{
-					UE_LOG(LogClientChannel, Log, TEXT("Server %s: receive property %s"), *GetName(), *PropName);
-				}
-#endif
+			if (GetWorld()->GetNetMode() == NM_Client)
+			{
+				UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: receive property %s"), GPlayInEditorID - 1, *GetName(), *PropName);
 			}
+			else
+			{
+				UE_LOG(LogClientChannel, Log, TEXT("Server %s: receive property %s"), *GetName(), *PropName);
+			}
+#endif
 		}
 
 		if (srvRepInfo.Num())
 			ReplicationData = srvRepInfo;
 
-		if (View != nullptr)
-			View->PostNetReceive();
+		View->PostNetReceive();
 	}
 }
