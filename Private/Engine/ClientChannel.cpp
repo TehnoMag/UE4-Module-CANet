@@ -94,7 +94,7 @@ void UClientChannel::InitializeProperty(UProperty* Property, AActor* Container)
 {
 	FClientChannelProperty& ChannelProperty = PropertyTracker.RepProperty[Property->RepIndex];
 	ChannelProperty.Property = Property;
-	ChannelProperty.LifetimeProperty = &PropertyTracker.LifetimeProperty[Property->RepIndex];
+	//ChannelProperty.LifetimeProperty = &PropertyTracker.LifetimeProperty[Property->RepIndex];
 
 	uint32 _size = Property->GetSize();
 
