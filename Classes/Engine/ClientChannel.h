@@ -66,12 +66,13 @@ public:
 struct FClientChannelProperty
 {
 	UProperty* Property;
-	FLifetimeProperty* LifetimeProperty;
+	ELifetimeCondition	Condition;
+	ELifetimeRepNotifyCondition RepNotifyCondition;
 	uint32 CheckSum;
 	TArray<uint8> Raw;
 
 	FClientChannelProperty()
-	:Property(nullptr),LifetimeProperty(nullptr),CheckSum(0)
+	:Property(nullptr),CheckSum(0)
 	{
 		Raw.Empty();
 	};
@@ -89,6 +90,8 @@ public:
 		RepProperty.SetNum(RepSize);
 	};
 
+	virtual ~FClientChannelPropertyTracker() {};
+
 	virtual void SetCustomIsActiveOverride(const uint16 RepIndex, const bool bIsActive) override {};
 
 	virtual void SetExternalData(const uint8* Src, const int32 NumBits) override {};
@@ -97,7 +100,6 @@ public:
 
 	TArray<FRepChangedParent> ChangedParent;
 	TArray<FClientChannelProperty> RepProperty;
-	TArray<FLifetimeProperty> LifetimeProperty;
 };
 
 UCLASS()

@@ -70,12 +70,22 @@ void UClientChannel::InitializeChannel()
 	Class->SetUpRuntimeReplicationData();
 
 	PropertyTracker = FClientChannelPropertyTracker(Class->ClassReps.Num());
-	Template->GetLifetimeReplicatedProps(PropertyTracker.LifetimeProperty);
 
 	for (FRepRecord RepRecord : Class->ClassReps)
 	{
 		UProperty* Property = RepRecord.Property;
 		InitializeProperty(Property, Template);
+	}
+
+	TArray<FLifetimeProperty> LifetimeProperty;
+	Template->GetLifetimeReplicatedProps(LifetimeProperty);
+
+	for (int32 i = 0; i < LifetimeProperty.Num(); ++i)
+	{
+		const int32 pIdx = LifetimeProperty[i].RepIndex;
+
+		PropertyTracker.RepProperty[pIdx].Condition = LifetimeProperty[i].Condition;
+		PropertyTracker.RepProperty[pIdx].RepNotifyCondition = LifetimeProperty[i].RepNotifyCondition;
 	}
 
 #if WITH_EDITOR
@@ -94,7 +104,6 @@ void UClientChannel::InitializeProperty(UProperty* Property, AActor* Container)
 {
 	FClientChannelProperty& ChannelProperty = PropertyTracker.RepProperty[Property->RepIndex];
 	ChannelProperty.Property = Property;
-	//ChannelProperty.LifetimeProperty = &PropertyTracker.LifetimeProperty[Property->RepIndex];
 
 	uint32 _size = Property->GetSize();
 
