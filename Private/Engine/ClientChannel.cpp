@@ -190,15 +190,18 @@ void UClientChannel::Server_ReceiveUpdate_Implementation(const TArray<FClientCha
 
 void UClientChannel::Client_ReceiveUpdate()
 {
-	ReceiveUpdate(ReplicationData);
+	if (View != nullptr)
+	{
+		View->PreNetReceive();
+		ReceiveUpdate(ReplicationData);
+		View->PostNetReceive();
+	}
 }
 
 void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 {
-	if (RepData.Num() && View != nullptr)
+	if (RepData.Num())
 	{
-		View->PreNetReceive();
-
 		TArray<FClientChannelRepData> srvRepInfo;
 		srvRepInfo.Empty();
 
@@ -212,20 +215,23 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 				RepProperty.CheckSum = RepInfo.CheckSum;
 				srvRepInfo.Emplace(RepInfo);
 
-				uint8* _ptr_ctr_ptr = RepProperty.Property->ContainerPtrToValuePtr<uint8>(View);
-				uint8* _ptr_rpr_ptr = RepProperty.Raw.GetData();
-				RepProperty.Property->CopyCompleteValue(_ptr_ctr_ptr, _ptr_rpr_ptr);
-
-				//Call RepNotify
-				if (RepProperty.Property->RepNotifyFunc != NAME_None)
+				if (View != nullptr)
 				{
-					UFunction* RepNotify = View->FindFunction(RepProperty.Property->RepNotifyFunc);
+					uint8* _ptr_ctr_ptr = RepProperty.Property->ContainerPtrToValuePtr<uint8>(View);
+					uint8* _ptr_rpr_ptr = RepProperty.Raw.GetData();
+					RepProperty.Property->CopyCompleteValue(_ptr_ctr_ptr, _ptr_rpr_ptr);
 
-					if (RepNotify)
+					//Call RepNotify
+					if (RepProperty.Property->RepNotifyFunc != NAME_None)
 					{
-						FString NotifyName = RepNotify->GetName();
-						UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: notify %s"), GPlayInEditorID - 1, *GetName(), *NotifyName);
-						View->ProcessEvent(RepNotify, nullptr);
+						UFunction* RepNotify = View->FindFunction(RepProperty.Property->RepNotifyFunc);
+
+						if (RepNotify)
+						{
+							FString NotifyName = RepNotify->GetName();
+							UE_LOG(LogClientChannel, Log, TEXT("Client %i %s: notify %s"), GPlayInEditorID - 1, *GetName(), *NotifyName);
+							View->ProcessEvent(RepNotify, nullptr);
+						}
 					}
 				}
 			}
@@ -246,7 +252,5 @@ void UClientChannel::ReceiveUpdate(const TArray<FClientChannelRepData>& RepData)
 
 		if (srvRepInfo.Num())
 			ReplicationData = srvRepInfo;
-
-		View->PostNetReceive();
 	}
 }
