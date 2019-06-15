@@ -20,11 +20,5 @@ ExtraModuleNames.AddRange(new string[] { "CANet" });
 - Recompile you project
 
 ## Usage
-### Dedicated Server
 *Todo*
 
-### Listen Server
-**This game mode are not supported**
-
-### Standalone game
-**This game mode are not supported**
