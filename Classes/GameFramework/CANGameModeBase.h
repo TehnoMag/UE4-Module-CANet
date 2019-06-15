@@ -16,20 +16,23 @@ public:
 
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "Classes")
-		uint8 bUseClientChannelForPlayerPawn;
+		uint8 bUseClientChannelForPlayerPawn:1;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Classes", Meta = (EditCondition = "bUseClientChannelForPlayerPawn"))
+		uint8 bCreateReflectionObjects:1;
 
 //* Begin AGameModeBase Interface
 
 public:
-	APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
+	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 
 //* End AGameModeBase Interface
 
 //* Begin Blueprint Interface
-
+	
 public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Client Authority Network")
 		void SpawnDefaultPawnAtTransformWithClientChannel(AController* NewPlayer, const FTransform& SpawnTransform);
-		
+
 //* End Blueperint Interface
 };

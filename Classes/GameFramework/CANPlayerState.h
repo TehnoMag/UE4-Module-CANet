@@ -15,27 +15,25 @@ class CANET_API ACANPlayerState : public APlayerState
 public:
 	ACANPlayerState();
 
-private:
-	TArray<UClientChannel*> Channels;
-	
-//~ Begin Network
-
-private:
-	UFUNCTION(Server, Reliable, WithValidation)
-		void Server_SpawnActorWithClientChannel(const FClientChannelInfo& ChannelInfo);
-
-//~ End Network
-
-//~ Begin Blueprint Interface
+//* Begin Blueprint Interface
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Client Authority Network",
-		Meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "5")
-	)
-	static void SpawnActorWithClientChannel(UObject* WorldContextObject, EClientChannelMode Authority, UClass* ActorClass, const FTransform& SpawnTransform,
-		ESpawnActorCollisionHandlingMethod CollisionMethodOverride,
-		ACANPlayerState* Spawner = nullptr, UClientChannel* OwnerActor = nullptr, UClientChannel* InstigatorPawn = nullptr);
+			Meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "4")
+		)
+		static void SpawnActorWithClientChannel(UObject* WorldContextObject, UClass* ActorClass, const FTransform& SpawnTransform,
+			ESpawnActorCollisionHandlingMethod CollisionMethodOverride, bool PossessOnSpawn = false,
+			bool CreateReflectionObject = false, ACANPlayerState* Spawner = nullptr,
+			UClientChannel* OwnerActor = nullptr, UClientChannel* InstigatorPawn = nullptr);
 
-//~ End Blueprint Interface
+//* End Blueprint Interface
+
+//* Begin Networking
+
+private:
+	UFUNCTION(Server, Reliable, WithValidation)
+		void Server_SpawnActorWithClientChannel(const FClientChannelInfo& ChannelInfo, const FClientChannelSpawnInfo& SpawnInfo);
+
+//* End Networking
 
 };

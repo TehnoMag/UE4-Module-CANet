@@ -9,39 +9,48 @@
 ACANGameModeBase::ACANGameModeBase()
 {
 	bUseClientChannelForPlayerPawn = true;
+	bCreateReflectionObjects = true;
 	PlayerControllerClass = ACANPlayerController::StaticClass();
 	PlayerStateClass = ACANPlayerState::StaticClass();
 }
 
 APawn* ACANGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
 {
+	APawn* SpawnedPawn = nullptr;
+
 	// Don't allow pawn to be spawned with any pitch or roll
 	FRotator StartRotation(ForceInit);
 	StartRotation.Yaw = StartSpot->GetActorRotation().Yaw;
 	FVector StartLocation = StartSpot->GetActorLocation();
 
 	FTransform Transform = FTransform(StartRotation, StartLocation);
-	
-	if (bUseClientChannelForPlayerPawn)
+
+	if (bUseClientChannelForPlayerPawn &&
+		((GetNetMode() == NM_ListenServer && NewPlayer != GetWorld()->GetFirstPlayerController()) ||
+			GetNetMode() == NM_DedicatedServer) 
+		)
 	{
-		SpawnDefaultPawnAtTransformWithClientChannel(NewPlayer, Transform);
 		InitStartSpot(StartSpot, NewPlayer);
-		return nullptr;
+		SpawnDefaultPawnAtTransformWithClientChannel(NewPlayer, Transform);
 	}
 	else
 	{
-		return SpawnDefaultPawnAtTransform(NewPlayer, Transform);
+		SpawnedPawn = SpawnDefaultPawnAtTransform(NewPlayer, Transform);
 	}
+
+	return SpawnedPawn;
 }
 
 void ACANGameModeBase::SpawnDefaultPawnAtTransformWithClientChannel_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
 {
-	ACANPlayerState* Spawner = Cast<ACANPlayerState>(NewPlayer->PlayerState);
+	ACANPlayerState* PlayerState = NewPlayer->GetPlayerState<ACANPlayerState>();
+	UClass* PlayerClass = GetDefaultPawnClassForController(NewPlayer);
+	UWorld* World = GetWorld();
 
-	if (Spawner)
+	if (PlayerState)
 	{
-		ACANPlayerState::SpawnActorWithClientChannel(
-			GetWorld(), EClientChannelMode::CCM_OWNER, GetDefaultPawnClassForController(NewPlayer), SpawnTransform,
-			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn, Spawner);
+		ACANPlayerState::SpawnActorWithClientChannel(World, PlayerClass, SpawnTransform,
+			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn, true,
+			bCreateReflectionObjects, PlayerState);
 	}
 }

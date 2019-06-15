@@ -4,20 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Engine/NetworkObjectList.h"
 #include "Net/RepLayout.h"
 #include "ClientChannel.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogClientChannel, Log, All);
-
 class UClientChannel;
-
-UENUM()
-enum class EClientChannelMode : uint8
-{
-	CCM_DEFAULT		UMETA(DisplayName = "Server Authority"),
-	CCM_OWNER		UMETA(DisplayName = "Own Client Authority"),
-	CCM_MAX			UMETA(DisplayName = "Symmetric authority")
-};
 
 USTRUCT()
 struct FClientChannelInfo
@@ -26,8 +17,27 @@ struct FClientChannelInfo
 
 public:
 	UPROPERTY()
+		uint8 bUseReflectObject : 1;
+
+	UPROPERTY()
 		UClass* Class;
 
+	UPROPERTY()
+		FName ActorName;
+
+	UPROPERTY()
+		UClientChannel* Owner;
+
+	UPROPERTY()
+		UClientChannel* Instigator;
+};
+
+USTRUCT()
+struct FClientChannelSpawnInfo
+{
+	GENERATED_BODY()
+
+public:
 	UPROPERTY()
 		FTransform SpawnTransform;
 
@@ -35,32 +45,7 @@ public:
 		ESpawnActorCollisionHandlingMethod CollisionMethodOverride;
 
 	UPROPERTY()
-		EClientChannelMode AuthorityMode;
-
-	UPROPERTY()
-		UClientChannel* Owner;
-
-	UPROPERTY()
-		UClientChannel* Instigator;
-
-	UPROPERTY()
-		uint8 bPossesOnSpawn : 1;
-};
-
-USTRUCT()
-struct FClientChannelRepData
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY()
-		uint32 RepIndex;
-
-	UPROPERTY()
-		uint32 CheckSum;
-
-	UPROPERTY()
-		TArray<uint8> Raw;
+		uint8 bPossessOnSpawn : 1;
 };
 
 struct FClientChannelProperty
@@ -68,26 +53,20 @@ struct FClientChannelProperty
 	UProperty* Property;
 	ELifetimeCondition	Condition;
 	ELifetimeRepNotifyCondition RepNotifyCondition;
+	ERepParentFlags Flags;
+	UFunction* RepNotify;
+	TArray<uint8> Value;
 	uint32 CheckSum;
-	TArray<uint8> Raw;
-
-	FClientChannelProperty()
-	:Property(nullptr),CheckSum(0)
-	{
-		Raw.Empty();
-	};
 };
 
-//Todo: move properties processing here
 class FClientChannelPropertyTracker : public IRepChangedPropertyTracker
 {
 public:
 	FClientChannelPropertyTracker() {};
-
-	FClientChannelPropertyTracker(uint32 RepSize)
+	FClientChannelPropertyTracker(uint16 Reps)
 	{
-		ChangedParent.SetNum(RepSize);
-		RepProperty.SetNum(RepSize);
+		Lifetime.SetNum(Reps);
+		RepProperty.SetNum(Reps);
 	};
 
 	virtual ~FClientChannelPropertyTracker() {};
@@ -96,9 +75,9 @@ public:
 
 	virtual void SetExternalData(const uint8* Src, const int32 NumBits) override {};
 
-	virtual bool IsReplay() const override { return false; }
+	virtual bool IsReplay() const override { return false; };
 
-	TArray<FRepChangedParent> ChangedParent;
+	TArray<FRepChangedParent> Lifetime;
 	TArray<FClientChannelProperty> RepProperty;
 };
 
@@ -107,65 +86,43 @@ class CANET_API UClientChannel : public UActorComponent
 {
 	GENERATED_BODY()
 
+#if WITH_SERVER_CODE
+
 public:
-	UClientChannel();
-	
-	void InitializeChannel(const FClientChannelInfo& ChannelInfo);
+	virtual void InitializeChannel(const FClientChannelInfo& ChannelInfo, const FClientChannelSpawnInfo& SpawnInfo);
+
+protected:
+	virtual void InitializeChannel_ServerSide();
+
+#endif 
+
+protected:
+	virtual void InitializeChannel();
+	virtual void InitializeProperty(FClientChannelProperty& ChannelProperty);
 
 private:
-	void InitializeChannel();
-	void InitializeProperty(UProperty* Property, AActor* Container);
-	void GatherUpdates(TArray<FClientChannelRepData>& RepData);
-	void ReceiveUpdate(const TArray<FClientChannelRepData>& RepData);
-
-private:
-	AActor* View;
+	FNetworkObjectInfo View;
 	FClientChannelPropertyTracker PropertyTracker;
 
-//~ Begin Network
+//* Begin Networking
+
+public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
-	UFUNCTION(Server, UnReliable, WithValidation)
-		void Server_ReceiveUpdate(const TArray<FClientChannelRepData>& RepData);
-
-	UFUNCTION()
-		void Client_ReceiveUpdate();
-
 	UFUNCTION()
 		void OnRep_ChannelInfo();
 
 private:
 	UPROPERTY(ReplicatedUsing = "OnRep_ChannelInfo")
 		FClientChannelInfo _ChannelInfo;
-	
+
+	UPROPERTY(Replicated)
+		FClientChannelSpawnInfo _SpawnInfo;
+
 	UPROPERTY(Replicated)
 		AActor* Viewer;
 
-	UPROPERTY(ReplicatedUsing = "Client_ReceiveUpdate")
-		TArray<FClientChannelRepData> ReplicationData;
-
-//~ End Network
-
-//~ Begin UActorComponent Interface
-
-public:
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-
-//~ End UActorComponent Interface
-
-//~ Begin UObject Interface
-
-public:
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
-//~ End UObject Interface
-
-//~ Begin Blueprint Interface
-
-public:
-	UFUNCTION(BlueprintCallable, Category = "Client Authority Network")
-		AActor* GetViewActor() const { return View; };
-
-//~ End Blueprint Interface
+//* End Networking
 
 };
