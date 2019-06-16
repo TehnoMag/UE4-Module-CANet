@@ -51,22 +51,44 @@ public:
 struct FClientChannelProperty
 {
 	UProperty* Property;
+	UClass* Class;
 	ELifetimeCondition	Condition;
 	ELifetimeRepNotifyCondition RepNotifyCondition;
 	ERepParentFlags Flags;
 	UFunction* RepNotify;
+};
+
+struct FClientChannelPropertyData
+{
 	TArray<uint8> Value;
 	uint32 CheckSum;
+};
+
+class FClientChannelPropertyMap
+{
+public:
+	FClientChannelPropertyMap() {};
+	FClientChannelPropertyMap(uint16 Reps)
+	{
+		Property.SetNum(Reps);
+	};
+
+	virtual ~FClientChannelPropertyMap() {};
+
+	TArray<FClientChannelProperty> Property;
 };
 
 class FClientChannelPropertyTracker : public IRepChangedPropertyTracker
 {
 public:
-	FClientChannelPropertyTracker() {};
-	FClientChannelPropertyTracker(uint16 Reps)
+	FClientChannelPropertyTracker(){};
+
+	FClientChannelPropertyTracker(FClientChannelPropertyMap* PropSet, uint16 Reps)
 	{
+		PropertySet = PropSet;
+		RepProperty = &PropSet->Property;
 		Lifetime.SetNum(Reps);
-		RepProperty.SetNum(Reps);
+		Data.SetNum(Reps);
 	};
 
 	virtual ~FClientChannelPropertyTracker() {};
@@ -77,8 +99,10 @@ public:
 
 	virtual bool IsReplay() const override { return false; };
 
+	FClientChannelPropertyMap* PropertySet;
 	TArray<FRepChangedParent> Lifetime;
-	TArray<FClientChannelProperty> RepProperty;
+	TArray<FClientChannelProperty>* RepProperty;
+	TArray<FClientChannelPropertyData> Data;
 };
 
 UCLASS()
@@ -103,6 +127,7 @@ protected:
 private:
 	FNetworkObjectInfo View;
 	FClientChannelPropertyTracker PropertyTracker;
+	static TMap<UClass*, FClientChannelPropertyMap*> PropertyMap;
 
 //* Begin Networking
 

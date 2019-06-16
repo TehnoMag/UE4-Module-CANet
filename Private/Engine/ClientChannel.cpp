@@ -4,6 +4,8 @@
 #include "CANet.Definations.h"
 #include "UnrealNetwork.h"
 
+TMap<UClass*, FClientChannelPropertyMap*> UClientChannel::PropertyMap;
+
 void UClientChannel::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -51,39 +53,53 @@ void UClientChannel::InitializeChannel()
 
 	AActor* Template = View.Actor;
 
-	Class->SetUpRuntimeReplicationData();
-	PropertyTracker = FClientChannelPropertyTracker(Class->ClassReps.Num());
+	FClientChannelPropertyMap* PropertySet = PropertyMap.Num() ? *PropertyMap.Find(Class) : nullptr;
 
-	TArray<FLifetimeProperty> LifetimeProps;
-	Template->GetLifetimeReplicatedProps(LifetimeProps);
-
-	for (FRepRecord& RepRecord : Class->ClassReps)
+	if (PropertySet == nullptr)
 	{
-		UProperty* Property = RepRecord.Property;
+		Class->SetUpRuntimeReplicationData();
 
-		PropertyTracker.RepProperty[Property->RepIndex].Property = Property;
-	}
+		PropertySet = PropertyMap.Emplace(Class, new FClientChannelPropertyMap(Class->ClassReps.Num()));
+		
+		PropertyTracker = FClientChannelPropertyTracker(PropertySet, Class->ClassReps.Num());
+		TArray<FClientChannelProperty>& RepProperty = *PropertyTracker.RepProperty;
 
-	for (FLifetimeProperty& Lifetime : LifetimeProps)
-	{
-		FClientChannelProperty& ChannelProperty = PropertyTracker.RepProperty[Lifetime.RepIndex];
-		ChannelProperty.Condition = Lifetime.Condition;
-		ChannelProperty.RepNotifyCondition = Lifetime.RepNotifyCondition;
+		TArray<FLifetimeProperty> LifetimeProps;
+		Template->GetLifetimeReplicatedProps(LifetimeProps);
 
-		if ((ChannelProperty.Flags & ERepParentFlags::IsCustomDelta) != ERepParentFlags::None)
+		for (FRepRecord& RepRecord : Class->ClassReps)
 		{
-			continue;
+			UProperty* Property = RepRecord.Property;
+
+			RepProperty[Property->RepIndex].Property = Property;
+			RepProperty[Property->RepIndex].RepNotify = Class->FindFunctionByName(Property->RepNotifyFunc);
 		}
 
-		ChannelProperty.Flags |= ERepParentFlags::IsLifetime;
-
-		if (Lifetime.Condition == COND_None)
+		for (FLifetimeProperty& Lifetime : LifetimeProps)
 		{
-			ChannelProperty.Flags &= ~ERepParentFlags::IsConditional;
+			FClientChannelProperty& ChannelProperty = RepProperty[Lifetime.RepIndex];
+			ChannelProperty.Condition = Lifetime.Condition;
+			ChannelProperty.RepNotifyCondition = Lifetime.RepNotifyCondition;
+
+			if ((ChannelProperty.Flags & ERepParentFlags::IsCustomDelta) != ERepParentFlags::None)
+			{
+				continue;
+			}
+
+			ChannelProperty.Flags |= ERepParentFlags::IsLifetime;
+
+			if (Lifetime.Condition == COND_None)
+			{
+				ChannelProperty.Flags &= ~ERepParentFlags::IsConditional;
+			}
 		}
 	}
+	else
+	{
+		PropertyTracker = FClientChannelPropertyTracker(PropertySet, Class->ClassReps.Num());
+	}
 
-	for (FClientChannelProperty& ChannelProperty : PropertyTracker.RepProperty)
+	for (FClientChannelProperty& ChannelProperty : PropertySet->Property)
 	{
 		InitializeProperty(ChannelProperty);
 	}
@@ -95,12 +111,12 @@ void UClientChannel::InitializeProperty(FClientChannelProperty& ChannelProperty)
 	PropertyTracker.Lifetime[Property->RepIndex].IsConditional = ((ChannelProperty.Flags & ERepParentFlags::IsConditional) != ERepParentFlags::None) ? 1 : 0;
 	AActor* Container = View.Actor;
 
-	ChannelProperty.RepNotify = Container->FindFunction(Property->RepNotifyFunc);
+	FClientChannelPropertyData& PropertyData = PropertyTracker.Data[Property->RepIndex];
 
 	uint8* _ptr_ctr_ptr = Property->ContainerPtrToValuePtr<uint8>(Container);
 	uint32 _size = Property->GetSize();
-	ChannelProperty.Value.AddZeroed(_size);
-	uint8* _ptr_val_ptr = ChannelProperty.Value.GetData();
+	PropertyData.Value.AddZeroed(_size);
+	uint8* _ptr_val_ptr = PropertyData.Value.GetData();
 	Property->CopyCompleteValue(_ptr_val_ptr, _ptr_ctr_ptr);
-	ChannelProperty.CheckSum = FCrc::MemCrc32(_ptr_val_ptr, _size);
+	PropertyData.CheckSum = FCrc::MemCrc32(_ptr_val_ptr, _size);
 }
