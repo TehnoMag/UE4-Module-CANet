@@ -1,17 +1,13 @@
 // Copyright (c) 2007-2019, Delta-Proxima Team All rights reserved.
 
 #include "GameFramework/CANGameModeBase.h"
-#include "GameFramework/CANPlayerController.h"
 #include "GameFramework/CANPlayerState.h"
 #include "Engine/ClientChannel.h"
-#include "Engine/World.h"
 
 ACANGameModeBase::ACANGameModeBase()
 {
-	bUseClientChannelForPlayerPawn = true;
-	bCreateReflectionObjects = true;
-	PlayerControllerClass = ACANPlayerController::StaticClass();
-	PlayerStateClass = ACANPlayerState::StaticClass();
+	bUseClientChannelForDefaultPawnClass = true;
+	ClientChannelClass = UClientChannel::StaticClass();
 }
 
 APawn* ACANGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
@@ -25,10 +21,8 @@ APawn* ACANGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlay
 
 	FTransform Transform = FTransform(StartRotation, StartLocation);
 
-	if (bUseClientChannelForPlayerPawn &&
-		((GetNetMode() == NM_ListenServer && NewPlayer != GetWorld()->GetFirstPlayerController()) ||
-			GetNetMode() == NM_DedicatedServer) 
-		)
+	//If we running on dedicated server and enable using client channel for player pawn then go different way
+	if (GetNetMode() == NM_DedicatedServer && bUseClientChannelForDefaultPawnClass == true)
 	{
 		InitStartSpot(StartSpot, NewPlayer);
 		SpawnDefaultPawnAtTransformWithClientChannel(NewPlayer, Transform);
@@ -43,14 +37,11 @@ APawn* ACANGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlay
 
 void ACANGameModeBase::SpawnDefaultPawnAtTransformWithClientChannel_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
 {
-	ACANPlayerState* PlayerState = NewPlayer->GetPlayerState<ACANPlayerState>();
-	UClass* PlayerClass = GetDefaultPawnClassForController(NewPlayer);
-	UWorld* World = GetWorld();
+	ACANPlayerState* PlayerState = Cast<ACANPlayerState>(NewPlayer->PlayerState);
 
 	if (PlayerState)
 	{
-		ACANPlayerState::SpawnActorWithClientChannel(World, PlayerClass, SpawnTransform,
-			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn, true,
-			bCreateReflectionObjects, PlayerState);
+
 	}
+
 }

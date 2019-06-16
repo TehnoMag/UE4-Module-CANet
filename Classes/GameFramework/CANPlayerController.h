@@ -11,7 +11,4 @@ class CANET_API ACANPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
-public:
-	ACANPlayerController();
-
 };

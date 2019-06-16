@@ -6,6 +6,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "CANGameModeBase.generated.h"
 
+class UClientChannel;
+
 UCLASS()
 class CANET_API ACANGameModeBase : public AGameModeBase
 {
@@ -14,25 +16,24 @@ class CANET_API ACANGameModeBase : public AGameModeBase
 public:
 	ACANGameModeBase();
 
-private:
-	UPROPERTY(EditDefaultsOnly, Category = "Classes")
-		uint8 bUseClientChannelForPlayerPawn:1;
+protected:
+	UFUNCTION(BlueprintNativeEvent, Category = "ClientAuthorityNetwork")
+		void SpawnDefaultPawnAtTransformWithClientChannel(AController* NewPlayer, const FTransform& SpawnTransform);
 
-	UPROPERTY(EditDefaultsOnly, Category = "Classes", Meta = (EditCondition = "bUseClientChannelForPlayerPawn"))
-		uint8 bCreateReflectionObjects:1;
+private:
+	//Enable using ClientChannel for player pawn
+	UPROPERTY(EditDefaultsOnly, Category = "GameMode")
+		uint8 bUseClientChannelForDefaultPawnClass : 1;
+
+	//ClientChannel class
+	UPROPERTY(EditDefaultsOnly, Category = "Classes")
+		TSubclassOf<UClientChannel> ClientChannelClass;
 
 //* Begin AGameModeBase Interface
 
 public:
 	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
 
-//* End AGameModeBase Interface
+//*
 
-//* Begin Blueprint Interface
-	
-public:
-	UFUNCTION(BlueprintNativeEvent, Category = "Client Authority Network")
-		void SpawnDefaultPawnAtTransformWithClientChannel(AController* NewPlayer, const FTransform& SpawnTransform);
-
-//* End Blueperint Interface
 };

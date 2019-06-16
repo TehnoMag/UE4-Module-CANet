@@ -4,8 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
-#include "Engine/ClientChannel.h"
 #include "CANPlayerState.generated.h"
+
+class UClientChannel;
 
 UCLASS()
 class CANET_API ACANPlayerState : public APlayerState
@@ -15,25 +16,32 @@ class CANET_API ACANPlayerState : public APlayerState
 public:
 	ACANPlayerState();
 
-//* Begin Blueprint Interface
+//* Begin Blueprint interface
 
 public:
-	UFUNCTION(BlueprintCallable, Category = "Client Authority Network",
-			Meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "4")
-		)
-		static void SpawnActorWithClientChannel(UObject* WorldContextObject, UClass* ActorClass, const FTransform& SpawnTransform,
-			ESpawnActorCollisionHandlingMethod CollisionMethodOverride, bool PossessOnSpawn = false,
-			bool CreateReflectionObject = false, ACANPlayerState* Spawner = nullptr,
-			UClientChannel* OwnerActor = nullptr, UClientChannel* InstigatorPawn = nullptr);
 
-//* End Blueprint Interface
+	/**
+	 * Spawn actor with client authority channel
+	 *
+	 * @param	ActorClass				The object class you want to construct
+	 * @param	SpawnTransform			The transform to spawn the actor with
+	 * @param	CollisionMethodOverride	Specifies how to handle collisions at the spawn point. If undefined, uses actor class settings
+	 * @param	Player					The player who will get authority control of this actor. May be null if running on client
+	 * @param	OwnerChannel			The client channel who has owner rights to this actors channel. May be null.
+	 * @param	InstigatorChannel		The channel that is controll APawn that is responsible for damage done by the spawned Actor. May be null.
+	 *
+	 * @return	Spawned actor or reflection object
+	 */
+	UFUNCTION(BlueprintCallable, Category = "ClientAuthorityNetwork",
+		Meta = (
+			WorldContext = "WorldContext",
+			DeterminesOutputType = "ActorClass",
+			AdvancedDisplay = "5"
+			))
+		static AActor* SpawnActorWithClientChannel(UObject* WorldContext, TSubclassOf<AActor> ActorClass,
+			const FTransform& SpawnTransform, ESpawnActorCollisionHandlingMethod CollisionHandlingOverride,
+			APlayerState* Player = nullptr, UClientChannel* OwnerChannel = nullptr, UClientChannel* InstigatorChannel = nullptr);
 
-//* Begin Networking
-
-private:
-	UFUNCTION(Server, Reliable, WithValidation)
-		void Server_SpawnActorWithClientChannel(const FClientChannelInfo& ChannelInfo, const FClientChannelSpawnInfo& SpawnInfo);
-
-//* End Networking
+//* End Blueprint interface
 
 };
