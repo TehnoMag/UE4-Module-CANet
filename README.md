@@ -24,7 +24,7 @@ ExtraModuleNames.AddRange(new string[] { "CANet" });
 *Todo*
 
 ### Listen Server
-**This game mode are not supported**
+**Limited supported**
 
 ### Standalone game
 **This game mode are not supported**

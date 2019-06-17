@@ -8,6 +8,7 @@ ACANGameModeBase::ACANGameModeBase()
 {
 	bUseClientChannelForDefaultPawnClass = true;
 	ClientChannelClass = UClientChannel::StaticClass();
+	PlayerStateClass = ACANPlayerState::StaticClass();
 }
 
 APawn* ACANGameModeBase::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
